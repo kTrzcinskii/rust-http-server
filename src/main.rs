@@ -110,8 +110,8 @@ fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
 
     match request_path {
         echo_path if echo_path.starts_with("/echo/") => send_response_to_echo(stream, echo_path)?,
-        "/" => send_response(stream, ServerResponse::Ok, vec![])?,
-        _ => send_response(stream, ServerResponse::NotFound, vec![])?,
+        "/" => send_response(stream, ServerResponse::Ok, vec![], "")?,
+        _ => send_response(stream, ServerResponse::NotFound, vec![], "")?,
     }
 
     Ok(())
@@ -121,10 +121,11 @@ fn send_response(
     mut stream: TcpStream,
     response: ServerResponse,
     headers: Vec<Header>,
+    body: &str,
 ) -> Result<(), ServerError> {
     let status_line = response.get_status_line();
     let headers_str = Header::combine_headers(headers);
-    let response_message = format!("{status_line}\r\n{headers_str}\r\n");
+    let response_message = format!("{status_line}\r\n{headers_str}\r\n{body}");
     stream
         .write_all(response_message.as_bytes())
         .map_err(|_| ServerError::WriteResponseError)?;
@@ -140,5 +141,5 @@ fn send_response_to_echo(stream: TcpStream, echo_path: &str) -> Result<(), Serve
         HeaderType::ContentLength,
         &message.len().to_string(),
     ));
-    send_response(stream, ServerResponse::Ok, headers)
+    send_response(stream, ServerResponse::Ok, headers, message)
 }
