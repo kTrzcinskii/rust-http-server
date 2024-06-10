@@ -2,7 +2,7 @@ use std::{io::Write, net::TcpStream};
 
 use crate::{
     error::ServerError,
-    header::{Header, HeaderType},
+    header::{Header, RequestHeaderType, ResponseHeaderType},
 };
 
 pub enum ServerResponse {
@@ -38,10 +38,28 @@ pub fn send_response_to_echo(stream: TcpStream, echo_path: &str) -> Result<(), S
     const ECHO_LEN: usize = 6; // "/echo/"
     let message = &echo_path[ECHO_LEN..];
     let mut headers: Vec<Header> = Vec::new();
-    headers.push(Header::new(HeaderType::ContentType, "text/plain"));
+    headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
     headers.push(Header::new(
-        HeaderType::ContentLength,
+        ResponseHeaderType::ContentLength,
         &message.len().to_string(),
     ));
     send_response(stream, ServerResponse::Ok, headers, message)
+}
+
+pub fn send_response_to_user_agent(
+    stream: TcpStream,
+    headers_lines: Vec<String>,
+) -> Result<(), ServerError> {
+    let message = headers_lines
+        .into_iter()
+        .find(|h| h.starts_with(&RequestHeaderType::UserAgent.to_string()))
+        .unwrap_or(String::from(""));
+
+    let mut headers: Vec<Header> = Vec::new();
+    headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
+    headers.push(Header::new(
+        ResponseHeaderType::ContentLength,
+        &message.len().to_string(),
+    ));
+    send_response(stream, ServerResponse::Ok, headers, &message)
 }
