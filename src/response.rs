@@ -50,10 +50,17 @@ pub fn send_response_to_user_agent(
     stream: TcpStream,
     headers_lines: Vec<String>,
 ) -> Result<(), ServerError> {
-    let message = headers_lines
+    // it should probably be some const in `header.rs`
+    let user_agent_len = RequestHeaderType::UserAgent.to_string().len() + 2; // + 2 for "; "
+
+    let mut message = headers_lines
         .into_iter()
         .find(|h| h.starts_with(&RequestHeaderType::UserAgent.to_string()))
         .unwrap_or(String::from(""));
+
+    if !message.is_empty() {
+        message = message[user_agent_len..].into();
+    }
 
     let mut headers: Vec<Header> = Vec::new();
     headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
