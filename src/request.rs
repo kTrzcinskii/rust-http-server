@@ -1,5 +1,5 @@
-use std::{
-    io::{BufRead, BufReader},
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
     net::TcpStream,
 };
 
@@ -8,7 +8,7 @@ use crate::{
     response::{send_response, send_response_to_echo, send_response_to_user_agent, ServerResponse},
 };
 
-pub fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
+pub async fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
     let buf_read = BufReader::new(&mut stream);
 
     // Remember that its spliiting even on "\n" only
@@ -19,9 +19,10 @@ pub fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
     let mut requests_segments_iter = buf_read.lines();
 
     let request_line = requests_segments_iter
-        .next()
-        .ok_or_else(|| ServerError::IncorrectRequestFormatError)?
-        .map_err(|_| ServerError::IncorrectRequestFormatError)?;
+        .next_line()
+        .await
+        .map_err(|_| ServerError::IncorrectRequestFormatError)?
+        .ok_or_else(|| ServerError::IncorrectRequestFormatError)?;
 
     let mut request_line_iterator = request_line.split(" ");
     let _request_method = request_line_iterator
@@ -31,18 +32,25 @@ pub fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
         .next()
         .ok_or_else(|| ServerError::IncorrectRequestFormatError)?;
 
-    let headers_lines: Vec<String> = requests_segments_iter
-        .take_while(|line| match line {
-            Ok(ref l) => !l.is_empty(),
-            Err(_) => false,
-        })
-        .filter_map(Result::ok)
-        .collect();
+    let mut headers_lines: Vec<String> = Vec::new();
+    while let Some(line) = requests_segments_iter
+        .next_line()
+        .await
+        .map_err(|_| ServerError::IncorrectRequestFormatError)?
+    {
+        if line.is_empty() {
+            break;
+        }
+        headers_lines.push(line);
+    }
+
     match request_path {
-        echo_path if echo_path.starts_with("/echo/") => send_response_to_echo(stream, echo_path)?,
-        "/user-agent" => send_response_to_user_agent(stream, headers_lines)?,
-        "/" => send_response(stream, ServerResponse::Ok, vec![], "")?,
-        _ => send_response(stream, ServerResponse::NotFound, vec![], "")?,
+        echo_path if echo_path.starts_with("/echo/") => {
+            send_response_to_echo(stream, echo_path).await?
+        }
+        "/user-agent" => send_response_to_user_agent(stream, headers_lines).await?,
+        "/" => send_response(stream, ServerResponse::Ok, vec![], "").await?,
+        _ => send_response(stream, ServerResponse::NotFound, vec![], "").await?,
     }
 
     Ok(())
