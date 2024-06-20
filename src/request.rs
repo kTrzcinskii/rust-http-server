@@ -1,14 +1,20 @@
+use std::sync::Arc;
+
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     net::TcpStream,
 };
 
 use crate::{
+    config::Config,
     error::ServerError,
-    response::{send_response, send_response_to_echo, send_response_to_user_agent, ServerResponse},
+    response::{
+        send_response, send_response_to_echo, send_response_to_files, send_response_to_user_agent,
+        ServerResponse,
+    },
 };
 
-pub async fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
+pub async fn handle_request(mut stream: TcpStream, config: Arc<Config>) -> Result<(), ServerError> {
     let buf_read = BufReader::new(&mut stream);
 
     // Remember that its spliiting even on "\n" only
@@ -47,6 +53,9 @@ pub async fn handle_request(mut stream: TcpStream) -> Result<(), ServerError> {
     match request_path {
         echo_path if echo_path.starts_with("/echo/") => {
             send_response_to_echo(stream, echo_path).await?
+        }
+        files_path if files_path.starts_with("/files/") => {
+            send_response_to_files(stream, files_path, config.get_files_directory()).await?
         }
         "/user-agent" => send_response_to_user_agent(stream, headers_lines).await?,
         "/" => send_response(stream, ServerResponse::Ok, vec![], "").await?,

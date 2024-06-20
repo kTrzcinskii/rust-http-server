@@ -1,4 +1,10 @@
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use std::path::Path;
+
+use tokio::{
+    fs::{self, File},
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
 
 use crate::{
     error::ServerError,
@@ -71,4 +77,48 @@ pub async fn send_response_to_user_agent(
         &message.len().to_string(),
     ));
     send_response(stream, ServerResponse::Ok, headers, &message).await
+}
+
+pub async fn send_response_to_files(
+    stream: TcpStream,
+    file_path: &str,
+    dir_path: &str,
+) -> Result<(), ServerError> {
+    // it shoudl be some const in `header.rs`
+    const FILES_PATH_PREFIX_LEN: usize = "/files/".len();
+
+    let file_name = &file_path[FILES_PATH_PREFIX_LEN..];
+
+    let path = Path::new(dir_path).join(file_name);
+    if fs::metadata(path.clone()).await.is_err() {
+        return send_response(stream, ServerResponse::NotFound, vec![], "").await;
+    }
+
+    let mut file = File::open(path)
+        .await
+        .map_err(|_| ServerError::FileReadingError)?;
+
+    let mut file_buf = vec![];
+    file.read_to_end(&mut file_buf)
+        .await
+        .map_err(|_| ServerError::FileReadingError)?;
+
+    let mut headers: Vec<Header> = Vec::new();
+    headers.push(Header::new(
+        ResponseHeaderType::ContentType,
+        "application/octet-stream",
+    ));
+    headers.push(Header::new(
+        ResponseHeaderType::ContentLength,
+        &file_buf.len().to_string(),
+    ));
+
+    send_response(
+        stream,
+        ServerResponse::Ok,
+        headers,
+        // TODO: do better than just from_utf8
+        &String::from_utf8(file_buf).expect("For now just assuming that file is utf8"),
+    )
+    .await
 }

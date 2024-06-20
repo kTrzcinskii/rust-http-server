@@ -2,4 +2,5 @@
 pub enum ServerError {
     IncorrectRequestFormatError,
     WriteResponseError,
+    FileReadingError,
 }
