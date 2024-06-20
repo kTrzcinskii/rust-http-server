@@ -3,4 +3,6 @@ pub enum ServerError {
     IncorrectRequestFormatError,
     WriteResponseError,
     FileReadingError,
+    IncorrectHttpMethodError,
+    IncorrectHeaderError,
 }

@@ -9,6 +9,7 @@ use tokio::{
 use crate::{
     error::ServerError,
     header::{Header, RequestHeaderType, ResponseHeaderType},
+    request::RequestContent,
 };
 
 pub enum ServerResponse {
@@ -41,9 +42,12 @@ pub async fn send_response(
     Ok(())
 }
 
-pub async fn send_response_to_echo(stream: TcpStream, echo_path: &str) -> Result<(), ServerError> {
+pub async fn send_response_to_echo(
+    stream: TcpStream,
+    content: RequestContent,
+) -> Result<(), ServerError> {
     const ECHO_LEN: usize = 6; // "/echo/"
-    let message = &echo_path[ECHO_LEN..];
+    let message = &content.path[ECHO_LEN..];
     let mut headers: Vec<Header> = Vec::new();
     headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
     headers.push(Header::new(
@@ -56,19 +60,14 @@ pub async fn send_response_to_echo(stream: TcpStream, echo_path: &str) -> Result
 
 pub async fn send_response_to_user_agent(
     stream: TcpStream,
-    headers_lines: Vec<String>,
+    content: RequestContent,
 ) -> Result<(), ServerError> {
-    // it should probably be some const in `header.rs`
-    let user_agent_len = RequestHeaderType::UserAgent.to_string().len() + 2; // + 2 for "; "
-
-    let mut message = headers_lines
-        .into_iter()
-        .find(|h| h.starts_with(&RequestHeaderType::UserAgent.to_string()))
-        .unwrap_or(String::from(""));
-
-    if !message.is_empty() {
-        message = message[user_agent_len..].into();
-    }
+    let message = content
+        .headers
+        .iter()
+        .find(|h| h.key == RequestHeaderType::UserAgent.to_string())
+        .and_then(|h| Option::Some(h.value.as_str()))
+        .unwrap_or("");
 
     let mut headers: Vec<Header> = Vec::new();
     headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
@@ -81,13 +80,13 @@ pub async fn send_response_to_user_agent(
 
 pub async fn send_response_to_files(
     stream: TcpStream,
-    file_path: &str,
+    content: RequestContent,
     dir_path: &str,
 ) -> Result<(), ServerError> {
     // it shoudl be some const in `header.rs`
     const FILES_PATH_PREFIX_LEN: usize = "/files/".len();
 
-    let file_name = &file_path[FILES_PATH_PREFIX_LEN..];
+    let file_name = &content.path[FILES_PATH_PREFIX_LEN..];
 
     let path = Path::new(dir_path).join(file_name);
     if fs::metadata(path.clone()).await.is_err() {
@@ -117,8 +116,15 @@ pub async fn send_response_to_files(
         stream,
         ServerResponse::Ok,
         headers,
-        // TODO: do better than just from_utf8
         &String::from_utf8(file_buf).expect("For now just assuming that file is utf8"),
     )
     .await
+}
+
+pub async fn send_response_to_post_file(
+    stream: TcpStream,
+    content: RequestContent,
+    dir_path: &str,
+) -> Result<(), ServerError> {
+    todo!()
 }

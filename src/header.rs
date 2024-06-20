@@ -1,10 +1,13 @@
 use core::fmt;
+use std::str::FromStr;
 
 use itertools::Itertools;
 
+use crate::error::ServerError;
+
 pub struct Header {
-    key: String,
-    value: String,
+    pub key: String,
+    pub value: String,
 }
 
 pub enum ResponseHeaderType {
@@ -49,6 +52,23 @@ impl Header {
 impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.key, self.value)
+    }
+}
+
+impl FromStr for Header {
+    type Err = ServerError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split(": ");
+        let key = parts
+            .next()
+            .ok_or(ServerError::IncorrectHeaderError)?
+            .to_string();
+        let value = parts
+            .next()
+            .ok_or(ServerError::IncorrectHeaderError)?
+            .to_string();
+        Ok(Header { key, value })
     }
 }
 
