@@ -75,8 +75,8 @@ impl RequestContent {
             }
 
             let read_count = read_count_res
-                .map_err(|_| ServerError::IncorrectRequestFormatError)?
-                .map_err(|_| ServerError::IncorrectRequestFormatError)?;
+                .unwrap() // at this point we know its not an error
+                .map_err(|_| ServerError::TcpStreamReadingError)?;
 
             if read_count == 0 {
                 break; // all data read

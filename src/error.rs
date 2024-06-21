@@ -8,4 +8,5 @@ pub enum ServerError {
     IncorrectPathError,
     FileCreatingError,
     FileWritingError,
+    TcpStreamReadingError,
 }
