@@ -16,6 +16,8 @@ pub enum HeaderType {
     Host,
     UserAgent,
     Accept,
+    AcceptEncoding,
+    ContentEncoding,
 }
 
 impl fmt::Display for HeaderType {
@@ -23,9 +25,11 @@ impl fmt::Display for HeaderType {
         match self {
             HeaderType::ContentType => write!(f, "Content-Type"),
             HeaderType::ContentLength => write!(f, "Content-Length"),
+            HeaderType::ContentEncoding => write!(f, "Content-Encoding"),
             HeaderType::Host => write!(f, "Host"),
             HeaderType::UserAgent => write!(f, "User-Agent"),
             HeaderType::Accept => write!(f, "Accept"),
+            HeaderType::AcceptEncoding => write!(f, "Accept-Encoding"),
         }
     }
 }

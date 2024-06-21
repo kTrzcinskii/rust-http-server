@@ -155,14 +155,14 @@ pub async fn handle_request(mut stream: TcpStream, config: Arc<Config>) -> Resul
                 send_response_to_files(stream, content, config.get_files_directory()).await?
             }
             "/user-agent" => send_response_to_user_agent(stream, content).await?,
-            "/" => send_response(stream, ServerResponse::Ok, vec![], "").await?,
-            _ => send_response(stream, ServerResponse::NotFound, vec![], "").await?,
+            "/" => send_response(stream, ServerResponse::Ok, vec![], "", &content).await?,
+            _ => send_response(stream, ServerResponse::NotFound, vec![], "", &content).await?,
         },
         RequestMethod::Post => match content.path.as_str() {
             files_path if files_path.starts_with("/files/") => {
                 send_response_to_post_file(stream, content, config.get_files_directory()).await?
             }
-            _ => send_response(stream, ServerResponse::NotFound, vec![], "").await?,
+            _ => send_response(stream, ServerResponse::NotFound, vec![], "", &content).await?,
         },
     }
 

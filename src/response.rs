@@ -7,6 +7,7 @@ use tokio::{
 };
 
 use crate::{
+    config,
     error::ServerError,
     header::{Header, HeaderType},
     request::RequestContent,
@@ -32,11 +33,25 @@ impl ServerResponse {
 pub async fn send_response(
     mut stream: TcpStream,
     response: ServerResponse,
-    headers: Vec<Header>,
+    mut headers: Vec<Header>,
     body: &str,
+    content: &RequestContent,
 ) -> Result<(), ServerError> {
+    let h = content.headers.iter().find(|h| {
+        h.key == HeaderType::AcceptEncoding.to_string()
+            && config::ACCEPTED_ENCODINGS.contains(&h.value.as_str())
+    });
+
+    if let Some(encoding_type) = h {
+        let encoding_header =
+            Header::new(HeaderType::ContentEncoding, encoding_type.value.as_str());
+        headers.push(encoding_header);
+        // TODO: encode body here
+    }
+
     let status_line = response.get_status_line();
     let headers_str = Header::combine_headers(headers);
+
     let response_message = format!("{status_line}\r\n{headers_str}\r\n{body}");
     stream
         .write_all(response_message.as_bytes())
@@ -58,7 +73,7 @@ pub async fn send_response_to_echo(
         &message.len().to_string(),
     ));
 
-    send_response(stream, ServerResponse::Ok, headers, message).await
+    send_response(stream, ServerResponse::Ok, headers, message, &content).await
 }
 
 pub async fn send_response_to_user_agent(
@@ -78,7 +93,7 @@ pub async fn send_response_to_user_agent(
         HeaderType::ContentLength,
         &message.len().to_string(),
     ));
-    send_response(stream, ServerResponse::Ok, headers, &message).await
+    send_response(stream, ServerResponse::Ok, headers, &message, &content).await
 }
 
 pub async fn send_response_to_files(
@@ -90,7 +105,7 @@ pub async fn send_response_to_files(
 
     let path = Path::new(dir_path).join(file_name);
     if fs::metadata(path.clone()).await.is_err() {
-        return send_response(stream, ServerResponse::NotFound, vec![], "").await;
+        return send_response(stream, ServerResponse::NotFound, vec![], "", &content).await;
     }
 
     let mut file = File::open(path)
@@ -117,6 +132,7 @@ pub async fn send_response_to_files(
         ServerResponse::Ok,
         headers,
         &String::from_utf8(file_buf).expect("For now just assuming that file is utf8"),
+        &content,
     )
     .await
 }
@@ -134,5 +150,5 @@ pub async fn send_response_to_post_file(
     file.write_all(content.body.as_bytes())
         .await
         .map_err(|_| ServerError::FileWritingError)?;
-    send_response(stream, ServerResponse::Created, vec![], "").await
+    send_response(stream, ServerResponse::Created, vec![], "", &content).await
 }
