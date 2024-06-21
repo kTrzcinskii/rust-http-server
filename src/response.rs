@@ -10,11 +10,13 @@ use crate::{
     error::ServerError,
     header::{Header, RequestHeaderType, ResponseHeaderType},
     request::RequestContent,
+    utils,
 };
 
 pub enum ServerResponse {
     Ok,
     NotFound,
+    Created,
 }
 
 impl ServerResponse {
@@ -22,6 +24,7 @@ impl ServerResponse {
         match self {
             ServerResponse::Ok => "HTTP/1.1 200 OK",
             ServerResponse::NotFound => "HTTP/1.1 404 Not Found",
+            ServerResponse::Created => "HTTP/1.1 201 Created",
         }
     }
 }
@@ -83,10 +86,7 @@ pub async fn send_response_to_files(
     content: RequestContent,
     dir_path: &str,
 ) -> Result<(), ServerError> {
-    // it shoudl be some const in `header.rs`
-    const FILES_PATH_PREFIX_LEN: usize = "/files/".len();
-
-    let file_name = &content.path[FILES_PATH_PREFIX_LEN..];
+    let file_name = utils::extract_filename_from_request_path(&content.path)?;
 
     let path = Path::new(dir_path).join(file_name);
     if fs::metadata(path.clone()).await.is_err() {
@@ -126,5 +126,13 @@ pub async fn send_response_to_post_file(
     content: RequestContent,
     dir_path: &str,
 ) -> Result<(), ServerError> {
-    todo!()
+    let file_name = utils::extract_filename_from_request_path(&content.path)?;
+    let file_path = Path::new(dir_path).join(file_name);
+    let mut file = File::create(file_path)
+        .await
+        .map_err(|_| ServerError::FileCreatingError)?;
+    file.write_all(content.body.as_bytes())
+        .await
+        .map_err(|_| ServerError::FileWritingError)?;
+    send_response(stream, ServerResponse::Created, vec![], "").await
 }

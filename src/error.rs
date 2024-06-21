@@ -5,4 +5,7 @@ pub enum ServerError {
     FileReadingError,
     IncorrectHttpMethodError,
     IncorrectHeaderError,
+    IncorrectPathError,
+    FileCreatingError,
+    FileWritingError,
 }
