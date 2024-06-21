@@ -123,10 +123,6 @@ impl RequestContent {
             }
         }
 
-        if current_stage != RequestParsignStage::RequestBody {
-            return Err(ServerError::IncorrectRequestFormatError);
-        }
-
         let body = String::from_utf8(buffer).unwrap();
 
         Ok(RequestContent {
