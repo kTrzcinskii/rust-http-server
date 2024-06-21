@@ -57,7 +57,7 @@ impl RequestContent {
         let mut method = RequestMethod::Get;
         let mut headers: Vec<Header> = vec![];
 
-        let read_timeout = time::Duration::from_millis(500);
+        let read_timeout = time::Duration::from_millis(1000);
 
         loop {
             // we need to fix blocking when there is no more data in tcp stream to read
@@ -69,20 +69,22 @@ impl RequestContent {
             let mut temp_buffer: [u8; 1024] = [0; 1024];
             let read_count_res = time::timeout(read_timeout, buf.read(&mut temp_buffer)).await;
 
-            if read_count_res.is_err() {
-                // timeout - we assume there is no more data to read
-                break;
+            match read_count_res {
+                Ok(Ok(0)) => {
+                    // EOF
+                    break;
+                }
+                Ok(Ok(read_count)) => {
+                    buffer.extend_from_slice(&temp_buffer[..read_count]);
+                }
+                Ok(Err(_)) => {
+                    return Err(ServerError::TcpStreamReadingError);
+                }
+                Err(_) => {
+                    // timeout
+                    break;
+                }
             }
-
-            let read_count = read_count_res
-                .unwrap() // at this point we know its not an error
-                .map_err(|_| ServerError::TcpStreamReadingError)?;
-
-            if read_count == 0 {
-                break; // all data read
-            }
-
-            buffer.extend_from_slice(&temp_buffer[..read_count]);
 
             if current_stage == RequestParsignStage::RequestBody {
                 continue;
