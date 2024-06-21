@@ -101,7 +101,7 @@ impl RequestContent {
 
                         path = parts
                             .next()
-                            .ok_or(ServerError::IncorrectRequestFormatError)?
+                            .ok_or(ServerError::IncorrectRequestLineError)?
                             .to_string();
 
                         current_stage = RequestParsignStage::Headers;
