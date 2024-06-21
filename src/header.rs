@@ -10,32 +10,22 @@ pub struct Header {
     pub value: String,
 }
 
-pub enum ResponseHeaderType {
+pub enum HeaderType {
     ContentType,
     ContentLength,
-}
-
-pub enum RequestHeaderType {
     Host,
     UserAgent,
     Accept,
 }
 
-impl fmt::Display for ResponseHeaderType {
+impl fmt::Display for HeaderType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResponseHeaderType::ContentType => write!(f, "Content-Type"),
-            ResponseHeaderType::ContentLength => write!(f, "Content-Length"),
-        }
-    }
-}
-
-impl fmt::Display for RequestHeaderType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RequestHeaderType::Host => write!(f, "Host"),
-            RequestHeaderType::UserAgent => write!(f, "User-Agent"),
-            RequestHeaderType::Accept => write!(f, "Accept"),
+            HeaderType::ContentType => write!(f, "Content-Type"),
+            HeaderType::ContentLength => write!(f, "Content-Length"),
+            HeaderType::Host => write!(f, "Host"),
+            HeaderType::UserAgent => write!(f, "User-Agent"),
+            HeaderType::Accept => write!(f, "Accept"),
         }
     }
 }

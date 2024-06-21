@@ -8,7 +8,7 @@ use tokio::{
 
 use crate::{
     error::ServerError,
-    header::{Header, RequestHeaderType, ResponseHeaderType},
+    header::{Header, HeaderType},
     request::RequestContent,
     utils,
 };
@@ -52,9 +52,9 @@ pub async fn send_response_to_echo(
     const ECHO_LEN: usize = 6; // "/echo/"
     let message = &content.path[ECHO_LEN..];
     let mut headers: Vec<Header> = Vec::new();
-    headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
+    headers.push(Header::new(HeaderType::ContentType, "text/plain"));
     headers.push(Header::new(
-        ResponseHeaderType::ContentLength,
+        HeaderType::ContentLength,
         &message.len().to_string(),
     ));
 
@@ -68,14 +68,14 @@ pub async fn send_response_to_user_agent(
     let message = content
         .headers
         .iter()
-        .find(|h| h.key == RequestHeaderType::UserAgent.to_string())
+        .find(|h| h.key == HeaderType::UserAgent.to_string())
         .and_then(|h| Option::Some(h.value.as_str()))
         .unwrap_or("");
 
     let mut headers: Vec<Header> = Vec::new();
-    headers.push(Header::new(ResponseHeaderType::ContentType, "text/plain"));
+    headers.push(Header::new(HeaderType::ContentType, "text/plain"));
     headers.push(Header::new(
-        ResponseHeaderType::ContentLength,
+        HeaderType::ContentLength,
         &message.len().to_string(),
     ));
     send_response(stream, ServerResponse::Ok, headers, &message).await
@@ -104,11 +104,11 @@ pub async fn send_response_to_files(
 
     let mut headers: Vec<Header> = Vec::new();
     headers.push(Header::new(
-        ResponseHeaderType::ContentType,
+        HeaderType::ContentType,
         "application/octet-stream",
     ));
     headers.push(Header::new(
-        ResponseHeaderType::ContentLength,
+        HeaderType::ContentLength,
         &file_buf.len().to_string(),
     ));
 
