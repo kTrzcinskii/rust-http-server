@@ -37,14 +37,25 @@ pub async fn send_response(
     body: &str,
     content: &RequestContent,
 ) -> Result<(), ServerError> {
-    let h = content.headers.iter().find(|h| {
-        h.key == HeaderType::AcceptEncoding.to_string()
-            && config::ACCEPTED_ENCODINGS.contains(&h.value.as_str())
-    });
+    let mut encoding_opt: Option<&str> = None;
 
-    if let Some(encoding_type) = h {
-        let encoding_header =
-            Header::new(HeaderType::ContentEncoding, encoding_type.value.as_str());
+    let h = content
+        .headers
+        .iter()
+        .find(|h| h.key == HeaderType::AcceptEncoding.to_string());
+
+    if let Some(encoding_header) = h {
+        let encodings = encoding_header.value.split(", ");
+        for encoding in encodings {
+            if config::ACCEPTED_ENCODINGS.contains(&encoding) {
+                encoding_opt = Some(encoding);
+                break;
+            }
+        }
+    }
+
+    if let Some(encoding_type) = encoding_opt {
+        let encoding_header = Header::new(HeaderType::ContentEncoding, encoding_type);
         headers.push(encoding_header);
         // TODO: encode body here
     }
