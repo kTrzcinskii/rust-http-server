@@ -3,13 +3,12 @@ use std::{str::FromStr, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, BufReader},
     net::TcpStream,
-    time,
 };
 
 use crate::{
     config::Config,
     error::ServerError,
-    header::Header,
+    header::{Header, HeaderType},
     response::{
         send_response, send_response_to_echo, send_response_to_files, send_response_to_post_file,
         send_response_to_user_agent, ServerResponse,
@@ -56,33 +55,29 @@ impl RequestContent {
         let mut path = String::new();
         let mut method = RequestMethod::Get;
         let mut headers: Vec<Header> = vec![];
+        let mut body_length: usize = 0;
 
-        let read_timeout = time::Duration::from_millis(1000);
+        let body_length_header = HeaderType::ContentLength.to_string();
 
+        // I assume here that if body is in the request, the `Content-Length` must be set, otherwise we are skipping the body
         loop {
-            // we need to fix blocking when there is no more data in tcp stream to read
-            // https://users.rust-lang.org/t/how-can-set-a-timeout-when-reading-data-using-tokio-bufreader/39347
-
-            // instead of just throwing error, we should check if its not the timeout error
-            // https://stackoverflow.com/questions/33557375/how-do-i-prevent-tcpstream-from-blocking-on-a-read
+            if current_stage == RequestParsignStage::RequestBody && buffer.len() >= body_length {
+                // all the body is read - according to header value
+                break;
+            }
 
             let mut temp_buffer: [u8; 1024] = [0; 1024];
-            let read_count_res = time::timeout(read_timeout, buf.read(&mut temp_buffer)).await;
+            let read_count_res = buf.read(&mut temp_buffer).await;
 
             match read_count_res {
-                Ok(Ok(0)) => {
-                    // EOF
+                Ok(0) => {
                     break;
                 }
-                Ok(Ok(read_count)) => {
+                Ok(read_count) => {
                     buffer.extend_from_slice(&temp_buffer[..read_count]);
                 }
-                Ok(Err(_)) => {
-                    return Err(ServerError::TcpStreamReadingError);
-                }
                 Err(_) => {
-                    // timeout
-                    break;
+                    return Err(ServerError::TcpStreamReadingError);
                 }
             }
 
@@ -115,6 +110,12 @@ impl RequestContent {
                             break;
                         }
                         let header = Header::from_str(&part_str)?;
+                        if header.key == body_length_header {
+                            body_length = header
+                                .value
+                                .parse::<usize>()
+                                .map_err(|_| ServerError::IncorrectHeaderError)?;
+                        }
                         headers.push(header);
                     }
                     // DEAD CODE
