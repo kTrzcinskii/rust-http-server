@@ -6,8 +6,6 @@ pub struct Config {
 
 const FILES_DIRECTORY_ARG_NAME: &str = "--directory";
 
-pub const ACCEPTED_ENCODINGS: [&str; 1] = ["gzip"];
-
 impl Config {
     pub fn load() -> Self {
         let mut directory: String = String::from(".");

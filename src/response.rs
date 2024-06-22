@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use tokio::{
     fs::{self, File},
@@ -7,7 +7,7 @@ use tokio::{
 };
 
 use crate::{
-    config,
+    encoding::{self, AvailableEncodings},
     error::ServerError,
     header::{Header, HeaderType},
     request::RequestContent,
@@ -47,25 +47,49 @@ pub async fn send_response(
     if let Some(encoding_header) = h {
         let encodings = encoding_header.value.split(", ");
         for encoding in encodings {
-            if config::ACCEPTED_ENCODINGS.contains(&encoding) {
+            if encoding::ACCEPTED_ENCODINGS.contains(&encoding) {
                 encoding_opt = Some(encoding);
                 break;
             }
         }
     }
 
+    let mut encoded_data: Vec<u8> = vec![];
+    let mut encoded = false;
+
     if let Some(encoding_type) = encoding_opt {
         let encoding_header = Header::new(HeaderType::ContentEncoding, encoding_type);
         headers.push(encoding_header);
-        // TODO: encode body here
+        let encoding = AvailableEncodings::from_str(encoding_type)?;
+        encoded_data = encoding::encode(body, encoding)?;
+        encoded = true;
+        let h_opt = headers
+            .iter_mut()
+            .find(|h| h.key == HeaderType::ContentLength.to_string());
+
+        if let Some(h) = h_opt {
+            h.value = encoded_data.len().to_string();
+        } else {
+            headers.push(Header::new(
+                HeaderType::ContentLength,
+                encoded_data.len().to_string().as_str(),
+            ));
+        }
     }
 
     let status_line = response.get_status_line();
     let headers_str = Header::combine_headers(headers);
 
-    let response_message = format!("{status_line}\r\n{headers_str}\r\n{body}");
+    let mut response = Vec::from(format!("{status_line}\r\n{headers_str}\r\n").as_bytes());
+
+    if encoded {
+        response.extend(encoded_data);
+    } else {
+        response.extend(body.as_bytes());
+    }
+
     stream
-        .write_all(response_message.as_bytes())
+        .write_all(&response)
         .await
         .map_err(|_| ServerError::WriteResponseError)?;
     Ok(())

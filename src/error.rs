@@ -10,4 +10,6 @@ pub enum ServerError {
     FileWritingError,
     TcpStreamReadingError,
     IncorrectRequestLineError,
+    IncorrectEncodingError,
+    EncodingError,
 }
